@@ -160,6 +160,8 @@ class noveldl():
                         v=OpenCC('s2t').convert(v)
                     v=re.sub('作者有话要说：','作者有话要说：\n',v)
                     if v!="":#按行写入正文
+                        if '地雷' in v or '火箭炮' in v or '营养液' in v or '手榴弹' in v or '深水鱼雷' in v: # ignore thank words
+                            continue 
                         fo.write(v+"\n")
                 if len(tex1)!=0:
                     fo.write("\n*\r\n")
@@ -196,6 +198,8 @@ class noveldl():
                         v=OpenCC('s2t').convert(v)
                     v=re.sub('作者有话要说：','作者有话要说：\n',v)
                     if v!="":
+                        if '地雷' in v or '火箭炮' in v or '营养液' in v or '手榴弹' in v or '深水鱼雷' in v: # ignore thank words
+                            continue 
                         fo.write(v+"\n")
         fo.close()
         self.percent+=1
@@ -229,6 +233,19 @@ class noveldl():
         intro=ress.xpath("//html/body/table/tr/td[1]/div[2]/div[@id='novelintro']//text()")
         #获取标签
         info=ress.xpath("string(/html/body/table[1]/tr/td[1]/div[3])")
+        #获取封面
+        cover=ress.xpath("string(/html/body/table[1]/tr/td[1]/div[2]/img/@src)")
+        if cover!='':
+            try:
+                pres=requests.get(cover)
+            except Exception:
+                img="0"
+                print("【封面保存失败！请检查网络或尝试科学上网。】\r\n")
+            else:
+                img=pres.content
+        else:
+            img="0"
+
 
         infox=[]
         for i in range(1,7):
@@ -238,6 +255,12 @@ class noveldl():
         xtitle=ress.xpath('string(//*[@itemprop="articleSection"])').strip()
         xaut=ress.xpath('string(//*[@itemprop="author"])').strip()
         ti=xtitle+'-'+xaut
+
+        #保存封面图片
+        if img!="0":
+            pic=open(ti+".jpg",'wb')
+            pic.write(img)
+            pic.close()
 
         if self.state=='s':
             ti=OpenCC('t2s').convert(ti)
@@ -407,18 +430,32 @@ class noveldl():
 
         #整合
         os.chdir(path)
+        fCount=open(ti+"_count.txt",'w',encoding='utf-8')
         f=open(ti+".txt",'w',encoding='utf-8')
         filenames=os.listdir(ppp)
         filenames.sort()#感谢@everything411的建议
         i=0
         for filename in filenames:
+            Count = 0 # count length of the chapter
             filepath = ppp+'/'+filename#感谢@everything411的建议
+            GetName = False 
             for line in open(filepath,encoding='utf-8', errors='ignore'):
+                Count += len(line) # count length of the chapter
+                line = line.replace('\u200c', '') # clean up <200c>
+                line = line.replace('\u200b', '') # clean up <200b>
                 f.writelines(line)
+                if len(line)>1 and '#' in line and not GetName:
+                  WriteName = line[:-1]
+                  GetName = True
+            try: # write the length of the chapter to a file 
+              ChapterNumber = int(filename[1:-4]) 
+              fCount.write('第%d章 %s 字数:%d \n' % (ChapterNumber, WriteName, Count)) 
+            except: ValueError
         f.close()
+        fCount.close() 
         shutil.rmtree(ppp)
-
         print("\r\ntxt文件整合完成")
+
 
 if __name__ == '__main__':
     #print('请输入cookie：')
